@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2] - 2026-07-01
+
+### Fixed
+- Path resolution on **Windows PowerShell 5.1**: single-file (and pipeline)
+  invocations previously reported "No PDF files to check" and exited 2, because
+  the `process{}` block does not run when a `ValueFromPipeline` parameter is bound
+  positionally via `-File`. Rewrote to `Test-Path`-based expansion with an `end{}`
+  fallback that behaves identically on 5.1 and 7. No behavior change on 7.
+
 ## [0.0.1] - 2026-07-01
 
 Initial release.
@@ -22,4 +31,5 @@ Initial release.
 - GitHub Actions CI running the suite on Linux (PowerShell 7) and Windows
   (PowerShell 7 and Windows PowerShell 5.1).
 
+[0.0.2]: https://github.com/lizthegrey/pdf-comment-gate/releases/tag/v0.0.2
 [0.0.1]: https://github.com/lizthegrey/pdf-comment-gate/releases/tag/v0.0.1
