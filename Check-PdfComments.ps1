@@ -258,26 +258,26 @@ begin {
         }
     }
 
-    # Expand the incoming Path(s) into a concrete list of .pdf files.
-    function Resolve-PdfTargets {
-        param([string[]]$Inputs)
-        foreach ($p in $Inputs) {
-            $resolved = @()
-            try { $resolved = Resolve-Path -Path $p -ErrorAction Stop } catch {
+    # Expand a single path (file / directory / wildcard) into concrete .pdf files.
+    # Test-Path based so it behaves identically on Windows PowerShell 5.1 and 7.
+    function Expand-OnePath {
+        param([string]$p)
+        if (Test-Path -LiteralPath $p -PathType Container) {
+            Get-ChildItem -LiteralPath $p -Filter *.pdf -File -Recurse:$Recurse -ErrorAction SilentlyContinue |
+                ForEach-Object { $_.FullName }
+        }
+        elseif (Test-Path -LiteralPath $p -PathType Leaf) {
+            if ([System.IO.Path]::GetExtension($p) -ieq '.pdf') { (Get-Item -LiteralPath $p).FullName }
+            else { Write-Host "SKIP    $p -- not a .pdf" -ForegroundColor DarkGray }
+        }
+        else {
+            # Not a literal path -- try wildcard expansion, then recurse per match.
+            $matched = @(Resolve-Path -Path $p -ErrorAction SilentlyContinue)
+            if ($matched.Count -eq 0) {
                 Write-Host "ERROR   $p -- path not found" -ForegroundColor Red
                 $script:hadError = $true
-                continue
-            }
-            foreach ($r in $resolved) {
-                $item = Get-Item -LiteralPath $r.Path
-                if ($item.PSIsContainer) {
-                    Get-ChildItem -LiteralPath $item.FullName -Filter *.pdf -File -Recurse:$Recurse |
-                        ForEach-Object { $_.FullName }
-                } elseif ($item.Extension -ieq '.pdf') {
-                    $item.FullName
-                } else {
-                    Write-Host "SKIP    $($item.FullName) -- not a .pdf" -ForegroundColor DarkGray
-                }
+            } else {
+                foreach ($m in $matched) { Expand-OnePath -p $m.Path }
             }
         }
     }
@@ -286,11 +286,16 @@ begin {
 }
 
 process {
-    foreach ($f in (Resolve-PdfTargets -Inputs $Path)) { $collected.Add($f) }
+    # Collect raw paths whether they arrive positionally or through the pipeline.
+    if ($Path) { foreach ($p in $Path) { [void]$collected.Add($p) } }
 }
 
 end {
-    $targets = $collected | Sort-Object -Unique
+    # Fallback: if the process block did not run (some hosts skip it when a
+    # ValueFromPipeline parameter is bound positionally via -File), use $Path.
+    if ($collected.Count -eq 0 -and $Path) { foreach ($p in $Path) { [void]$collected.Add($p) } }
+
+    $targets = $collected | ForEach-Object { Expand-OnePath -p $_ } | Sort-Object -Unique
     if (-not $targets) {
         Write-Host "No PDF files to check." -ForegroundColor Yellow
         exit 2
