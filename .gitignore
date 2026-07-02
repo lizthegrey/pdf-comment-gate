@@ -1,0 +1,5 @@
+# Nothing to build; keep the tree clean of editor / OS cruft.
+*.tmp
+*.log
+Thumbs.db
+.DS_Store

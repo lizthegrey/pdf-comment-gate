@@ -1,0 +1,31 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-pwsh
+            os: ubuntu-latest
+            run: pwsh -File tests/Run-Tests.ps1
+          - name: windows-pwsh
+            os: windows-latest
+            run: pwsh -File tests/Run-Tests.ps1
+          - name: windows-powershell-5.1
+            os: windows-latest
+            run: powershell -File tests/Run-Tests.ps1
+            gate: powershell
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        env:
+          GATE_PWSH: ${{ matrix.gate }}
+        run: ${{ matrix.run }}
